@@ -24,6 +24,12 @@ fn main() {
         }
     }
     
+    // try again doing half and half
+    let cmplx_in_e = complex_input.into_iter().filter(|&j| &j % 2 == 0).collect::<Vec<Complex<f32>>>();
+    let cmplx_in_o = complex_input.into_iter().filter(|&j| &j % 2 == 1).collect::<Vec<Complex<f32>>>();
+
+    let x_e_spec = radix_k_fft(cmplx_in_e, cmplx_in_e.len() / 2);
+    let x_o_spec = radix_k_fft(cmplx_in_o, cmplx_in_o.len() / 2);
 }
 
 
