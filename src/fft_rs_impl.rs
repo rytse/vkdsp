@@ -4,11 +4,15 @@ use num::complex::Complex;
 use vkdsp::fio::*;
 
 fn main() {
-    let x = get_binfile_as_vec_c32("tmp.bin");
+    let x = get_binfile_as_vec_c32("ys.bin");
     let x_spec = radix_k_fft(&x, x.len() as u32);
 
     for i in 0..x_spec.len() {
-        println!("{:}+{:}j", x_spec[i].re, x_spec[i].im);
+        if (x_spec[i].im >= 0.0) {
+            println!("{:}+{:}j", x_spec[i].re, x_spec[i].im);
+        } else {
+            println!("{:}-{:}j", x_spec[i].re, -x_spec[i].im);
+        }
     }
 }
 
