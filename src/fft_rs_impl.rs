@@ -1,52 +1,71 @@
-use std::f32::consts::PI;
 use num::complex::Complex;
-
+/// Sample code testing various Fourier transform implementations
+use std::f32::consts::PI;
 
 use rustfft::num_traits::Zero;
 
-
 use vkdsp::fio::*;
 
+/// Test plain-old-Rust implementations of the DFT, radix-2 (one level) FFT, and
+/// the "recursive" arbitrary final size FFT that is used by vkdsp
 fn main() {
-
-    //read input from file
+    // Read input from file
     let complex_input = get_binfile_as_vec_c32("tmp.bin");
+    let n = complex_input.len();
 
-    //execute radix fft
-    let x_spec = radix_k_fft(&complex_input, complex_input.len());
-    
-    
-    for i in 0..x_spec.len() {
-        if x_spec[i].im >= 0.0 {
-            println!("{:}+{:}j", x_spec[i].re, x_spec[i].im);
-        } else {
-            println!("{:}-{:}j", x_spec[i].re, -x_spec[i].im);
-        }
+    // Execute full-sized FFT
+    let x_spec = _dft(&complex_input);
+
+    // Compute Radix-2 FFT
+    let mut cmplx_in_e = vec![Complex::<f32> { re: 0.0, im: 0.0 }; n / 2];
+    let mut cmplx_in_o = vec![Complex::<f32> { re: 0.0, im: 0.0 }; n / 2];
+    for i in 0..n / 2 {
+        cmplx_in_e[i] = complex_input[2 * i];
+        cmplx_in_o[i] = complex_input[2 * i + 1];
     }
-    
-    // try again doing half and half
-    let cmplx_in_e = complex_input.into_iter().filter(|&j| &j % 2 == 0).collect::<Vec<Complex<f32>>>();
-    let cmplx_in_o = complex_input.into_iter().filter(|&j| &j % 2 == 1).collect::<Vec<Complex<f32>>>();
+    let x_e_spec = _dft(&cmplx_in_e);
+    let x_o_spec = _dft(&cmplx_in_o);
+    let mut combined_spec = vec![Complex::<f32> { re: 0.0, im: 0.0 }; n];
+    for i in 0..n / 2 {
+        combined_spec[i] = x_e_spec[i]
+            + Complex::i()
+                .scale(-2.0 * PI * (i as f32) / (n as f32))
+                .exp()
+                * x_o_spec[i];
+    }
+    for i in 0..n / 2 {
+        combined_spec[i + n / 2] = x_e_spec[i]
+            - Complex::i()
+                .scale(-2.0 * PI * (i as f32) / (n as f32))
+                .exp()
+                * x_o_spec[i];
+    }
 
-    let x_e_spec = radix_k_fft(cmplx_in_e, cmplx_in_e.len() / 2);
-    let x_o_spec = radix_k_fft(cmplx_in_o, cmplx_in_o.len() / 2);
+    // Compare output
+    for i in 0..n {
+        println!(
+            "x_spec: {:}+{:}\tcombined_spec: {:}+{:}",
+            x_spec[i].re, x_spec[i].im, combined_spec[i].re, combined_spec[i].im
+        );
+    }
 }
 
-
+/// Get the value of the FFT twiddle table for a given signal length and
+/// frequency index.
 fn get_fft_w(i: usize, k: usize, n: usize) -> Complex<f32> {
-    Complex::i().scale(-2.0 * PI * (i as f32)  * (k as f32) / (n as f32)).exp()
+    Complex::i()
+        .scale(-2.0 * PI * (i as f32) * (k as f32) / (n as f32))
+        .exp()
 }
 
-
-fn radix_k_fft(x: &Vec<Complex<f32>>, k: usize) -> Vec<Complex<f32>>{
-
-    let mut x_spec: Vec<Complex<f32>> = vec![Complex::zero(); x.len()];
-
-    for i in 0..x.len() {
-        for j in 0..k {
-            x_spec[i] += x[j] * get_fft_w(i, j, x.len());
+/// Compute DFT of input vector
+fn _dft(x: &Vec<Complex<f32>>) -> Vec<Complex<f32>> {
+    let n = x.len();
+    let mut x_spec: Vec<Complex<f32>> = vec![Complex::zero(); n];
+    for i in 0..n {
+        for j in 0..n {
+            x_spec[i] += x[j] * get_fft_w(i, j, n);
         }
     }
-
     x_spec
 }
