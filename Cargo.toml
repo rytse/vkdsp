@@ -10,3 +10,12 @@ edition = "2018"
 vulkano = "0.19"
 vulkano-shaders = "0.18"
 image = "0.23"
+num = "0.3.1"
+
+[[example]]
+name = "fft"
+path = "src/fft.rs"
+
+[[example]]
+name = "fft_rs_impl"
+path = "src/fft_rs_impl.rs"
