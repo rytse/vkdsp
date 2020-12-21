@@ -8,10 +8,8 @@ use vulkano::device::Device;
 use vulkano::device::DeviceExtensions;
 use vulkano::device::Features;
 
-
 use vulkano::buffer::BufferUsage;
 use vulkano::buffer::CpuAccessibleBuffer;
-
 
 //command buffer takes n commands i think
 use vulkano::command_buffer::AutoCommandBufferBuilder;
@@ -20,12 +18,9 @@ use vulkano::command_buffer::AutoCommandBufferBuilder;
 //probably toher stuff - need it to execute command buffer
 use vulkano::command_buffer::CommandBuffer;
 
-
-
 //so i can execute command buffer and no fuck the gpu?
 //think ajax promise eli
 use vulkano::sync::GpuFuture;
-
 
 //shade rpipeline stuff
 use std::sync::Arc;
@@ -40,50 +35,62 @@ use vulkano::format::Format;
 use vulkano::image::Dimensions;
 use vulkano::image::StorageImage;
 
-use vulkano::format::ClearValue;
 use image::{ImageBuffer, Rgba};
+use vulkano::format::ClearValue;
 
 fn main() {
-    let instance = Instance::new(None, &InstanceExtensions::none(), None)
-        .expect("failed to create instance");
+    let instance =
+        Instance::new(None, &InstanceExtensions::none(), None).expect("failed to create instance");
 
-    let physical = PhysicalDevice::enumerate(&instance).next().expect("no device available");
+    let physical = PhysicalDevice::enumerate(&instance)
+        .next()
+        .expect("no device available");
 
     for family in physical.queue_families() {
-        println!("Found a queue family with {:?} queue(s)", family.queues_count());
+        println!(
+            "Found a queue family with {:?} queue(s)",
+            family.queues_count()
+        );
     }
 
-    let queue_family = physical.queue_families()
+    let queue_family = physical
+        .queue_families()
         .find(|&q| q.supports_graphics())
         .expect("couldn't find a graphical queue family");
 
     let (device, mut queues) = {
-        Device::new(physical, &Features::none(), 
-                    &DeviceExtensions{khr_storage_buffer_storage_class:true, ..DeviceExtensions::none()},
-                    [(queue_family, 0.5)].iter().cloned()).expect("failed to create device")
+        Device::new(
+            physical,
+            &Features::none(),
+            &DeviceExtensions {
+                khr_storage_buffer_storage_class: true,
+                ..DeviceExtensions::none()
+            },
+            [(queue_family, 0.5)].iter().cloned(),
+        )
+        .expect("failed to create device")
     };
     let queue = queues.next().unwrap();
-
 
     //cpu buffer
 
     let data = 12;
-    let buffer = CpuAccessibleBuffer::from_data(device.clone(),BufferUsage::all(), false,data
-                                               ).expect("failed to create buffer");
+    let buffer = CpuAccessibleBuffer::from_data(device.clone(), BufferUsage::all(), false, data)
+        .expect("failed to create buffer");
 
     struct MyStruct {
         a: u32,
         b: bool,
     }
 
+    let data = MyStruct { a: 5, b: true };
 
-    let data = MyStruct{a:5, b:true};
-
-    let buffer = CpuAccessibleBuffer::from_data(device.clone(), BufferUsage::all(), false, data).unwrap();
-
+    let buffer =
+        CpuAccessibleBuffer::from_data(device.clone(), BufferUsage::all(), false, data).unwrap();
 
     let iter = (0..128).map(|_| 5u8);
-    let buffer = CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), false, iter).unwrap(); 
+    let buffer =
+        CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), false, iter).unwrap();
 
     let mut content = buffer.write().unwrap();
     //for mystruct buffer
@@ -95,21 +102,21 @@ fn main() {
     content[12] = 83;
     content[7] = 3;
 
-
     //creating buffers
     //dumby int data (0,64)
     let source_content = 0..64;
     //source cpu buffer
-    let source = CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), false, source_content
-                                               ).expect("failed to create buffer");
+    let source =
+        CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), false, source_content)
+            .expect("failed to create buffer");
 
     //destination content
     //I think has to be the same size as source
     let dest_content = (0..64).map(|_| 0); //64 0s
-    //actually make destination buffer - pass it dest_content
-    let dest = CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), false, dest_content
-                                             ).expect("failed to create buffer");
-
+                                           //actually make destination buffer - pass it dest_content
+    let dest =
+        CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), false, dest_content)
+            .expect("failed to create buffer");
 
     //command buffer code
     let mut builder = AutoCommandBufferBuilder::new(device.clone(), queue.family()).unwrap();
@@ -121,18 +128,19 @@ fn main() {
 
     //this is weird... something something wiat for command buffer
     //until gpu executes
-    finished.then_signal_fence_and_flush().unwrap().wait(None).unwrap();
+    finished
+        .then_signal_fence_and_flush()
+        .unwrap()
+        .wait(None)
+        .unwrap();
 
     //yay now we can read stuff
     let src_content = source.read().unwrap();
     let dest_content = dest.read().unwrap();
     assert_eq!(&*src_content, &*dest_content);
 
-
-
-
     //---------------------------------------------
-    // This part is interesting, we are actually gonna 
+    // This part is interesting, we are actually gonna
     // do a gpu operation, multiply 65546 values by 12
     //---------------------------------------------
 
@@ -144,15 +152,14 @@ fn main() {
     //let data_array = data_iter.[into_]iter().collect::<Vec<u32>>().as_slice().try_into().unwrap();
     //let data_iter = 0..131072;
 
-    let data_buffer = CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), false, data_iter
-                                                    ).expect("failed to create buffer");
-
-
+    let data_buffer =
+        CpuAccessibleBuffer::from_iter(device.clone(), BufferUsage::all(), false, data_iter)
+            .expect("failed to create buffer");
 
     //inserting GLSL code into rust
 
     mod cs {
-        vulkano_shaders::shader!{
+        vulkano_shaders::shader! {
             ty: "compute",
             src: "
                 #version 450
@@ -172,33 +179,42 @@ fn main() {
     //call the shader we just wrote?
     let shader = cs::Shader::load(device.clone()).expect("failed to create shader module");
 
-
     //call compute pipeline
-    let compute_pipeline = Arc::new(ComputePipeline::new(device.clone(), &shader.main_entry_point(), &()
-                                                        ).expect("failed to create compue pipeline"));
-
-
+    let compute_pipeline = Arc::new(
+        ComputePipeline::new(device.clone(), &shader.main_entry_point(), &())
+            .expect("failed to create compue pipeline"),
+    );
 
     //descriptor magic
     let layout = compute_pipeline.layout().descriptor_set_layout(0).unwrap();
 
-    let set = Arc::new(PersistentDescriptorSet::start(layout.clone()
-                                                     ).add_buffer(data_buffer.clone()).unwrap().build().unwrap());
-
+    let set = Arc::new(
+        PersistentDescriptorSet::start(layout.clone())
+            .add_buffer(data_buffer.clone())
+            .unwrap()
+            .build()
+            .unwrap(),
+    );
 
     //dispatch code
     //this looks similar
     let mut builder = AutoCommandBufferBuilder::new(device.clone(), queue.family()).unwrap();
-    builder.dispatch([1024,1,1], compute_pipeline.clone(), set.clone(), ()).unwrap();
+    builder
+        .dispatch([1024, 1, 1], compute_pipeline.clone(), set.clone(), ())
+        .unwrap();
     let command_buffer = builder.build().unwrap();
 
     let finished = command_buffer.execute(queue.clone()).unwrap();
 
-    finished.then_signal_fence_and_flush().unwrap().wait(None).unwrap();
+    finished
+        .then_signal_fence_and_flush()
+        .unwrap()
+        .wait(None)
+        .unwrap();
 
     let content = data_buffer.read().unwrap();
 
-    for (n,val) in content.iter().enumerate() {
+    for (n, val) in content.iter().enumerate() {
         assert_eq!(*val, n as u32);
         //println!("{:?}", val);
     }
