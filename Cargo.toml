@@ -11,6 +11,9 @@ vulkano = "0.19"
 vulkano-shaders = "0.18"
 image = "0.23"
 num = "0.3.1"
+rustfft = "4.0.0"
+
+
 
 [[example]]
 name = "fft"
