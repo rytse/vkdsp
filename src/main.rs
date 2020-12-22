@@ -36,6 +36,8 @@ use vulkano::image::StorageImage;
 use image::{ImageBuffer, Rgba};
 use vulkano::format::ClearValue;
 
+use vkdsp::fft::*;
+
 fn main() {
     let instance =
         Instance::new(None, &InstanceExtensions::none(), None).expect("failed to create instance");
@@ -72,6 +74,10 @@ fn main() {
     };
     let queue = queues.next().unwrap();
 
+    // Test FFT code
+    fft_setup(device.clone(), queue.clone());
+
+    /*
     //cpu buffer
 
     let data = 12;
@@ -162,18 +168,18 @@ fn main() {
         vulkano_shaders::shader! {
             ty: "compute",
             src: "
-	#version 450
+    #version 450
 
-	layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
+    layout(local_size_x = 8, local_size_y = 1, local_size_z = 1) in;
 
-	layout(set = 0, binding = 0) buffer Data {
-	    uint data[];
-	} buf;
+    layout(set = 0, binding = 0) buffer Data {
+        uint data[];
+    } buf;
 
-	void main() {
-	    uint idx = gl_GlobalInvocationID.x;
-	    buf.data[idx] = idx;
-	}"
+    void main() {
+        uint idx = gl_GlobalInvocationID.x;
+        buf.data[idx] = idx;
+    }"
         }
     }
     //call the shader we just wrote?
@@ -218,6 +224,7 @@ fn main() {
         assert_eq!(*val, n as u32);
         //println!("{:?}", val);
     }
+    */
 
     /*
 

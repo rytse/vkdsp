@@ -6,4 +6,5 @@ mod tests {
     }
 }
 
+pub mod fft;
 pub mod fio;

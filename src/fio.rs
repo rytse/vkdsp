@@ -9,7 +9,6 @@ use num::complex::Complex;
  * Read ReIm32 complex float values (32 per half, 64 total) from a
  * bin file
  */
-
 pub fn get_binfile_as_vec_c32(filename: &str) -> Vec<Complex<f32>> {
     // Read the bin file
     let mut fi = File::open(&filename).expect("no such file");
