@@ -55,7 +55,7 @@ fn _gen_twiddle_table(n: u32) -> Vec<Complex<f32>> {
 
 fn fft_setup(device: Arc<Device>, queue: Arc<Queue>) -> Result<Vec<Complex<f32>>, &'static str> {
     // Create I/O and twiddle buffers for the DFT
-    let in_samps = (0..64)
+    let in_samps: Vec<Complex<f32>> = (0..64)
         .map(|k| Complex::<f32> {
             re: k as f32,
             im: -k as f32,
@@ -68,7 +68,7 @@ fn fft_setup(device: Arc<Device>, queue: Arc<Queue>) -> Result<Vec<Complex<f32>>
     let (twiddle_buf, twiddle_buf_execf) =
         ImmutableBuffer::from_data(twiddle_table, BufferUsage::all(), queue).unwrap();
     // TODO wait for twiddle_buf to finish loading
-    let out_spec = (0..64)
+    let out_spec: Vec<Complex<f32>> = (0..64)
         .map(|k| Complex::<f32> { re: 0.0, im: 0.0 })
         .collect();
     let out_buf =
@@ -79,30 +79,15 @@ fn fft_setup(device: Arc<Device>, queue: Arc<Queue>) -> Result<Vec<Complex<f32>>
         vulkano_shaders::shader! {
             ty: "compute",
             src: "
-#version 450
+            #version 450
 
-layout(location = 0) in vec2 in_samps;
-layout(location = 0) in vec2 twiddle_table;
-layout(location = 0) out vec2 out_spec;
+            //layout(location = 0) in;
 
-void rmder(int a, int b) {
-    return a - a * (a / b);
-}
+            
 
-void main() {
-    int i, j;
-    // TODO (ryan): see if we actually have to flush this in GLSL
-    for (i = 0; i < 64; i++) {
-         out_spec[i] = 0;
-    }
-
-    for (i = 0; i < 64; i++) {
-        for (j = 0; j < 64; j++) {
-            out_spec[i] += in_samps[j] *
-            twiddle_table[rmder(i * j, 64)];
-        } 
-    }
-}"
+            void main() {
+                
+            }"
         }
     }
 
@@ -140,6 +125,7 @@ void main() {
         .wait(None)
         .unwrap();
 
-    let content = out_spec.read().unwrap();
-    Ok(content)
+    //let content = (out_spec as Vec<_>).read().unwrap();
+    let content = out_buf.read().unwrap();
+    Ok(content.to_vec())
 }
