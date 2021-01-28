@@ -38,6 +38,64 @@ use vulkano::format::ClearValue;
 
 use vkdsp::fft::*;
 
+
+
+//High pass filter should split between files
+fn high_pass_filter(mut builder: AutoCommandBufferBuilder<StandardCommandPoolBuilder>, 
+    buffer: Arc<BufferAccess + Sync + Send>, device: Arc<Device>) 
+    ->  AutoCommandBufferBuilder<StandardCommandPoolBuilder>
+    {
+    mod filter {
+        vulkano_shaders::shader! {
+            ty: "compute",
+            src: "
+            #version 450
+
+            layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
+            layout(set = 0, binding=0) buffer Data {
+                vec2 data[];
+            } buf;
+
+            layout(push_constant) uniform PushContants {
+                float clip_max;
+            };
+
+            void main() {
+                uint idx = gl_GlobalInvocationID.x;
+                buf.data[idx] = vec2(min(buf.data[idx].x, clip_max), min(buf.data[idx].y, clip_max));
+                //buf.data[idx] = vec2(0.0,0.0);
+            }
+
+            "
+        }
+    }
+
+    
+    let shader_filter = filter::Shader::load(device.clone()).
+                                expect("failed to create filter shader module!");
+
+    let filter_pipeline = Arc::new(ComputePipeline::new(device.clone(),
+        &shader_filter.main_entry_point(), &()).expect("failed to create compute pipeline"));
+
+    let filter_layout = filter_pipeline.layout().descriptor_set_layout(0).unwrap();
+
+    let set_filter = Arc::new(PersistentDescriptorSet::start(filter_layout.clone())
+        .add_buffer(buffer.clone()).unwrap()
+        .build().unwrap());
+    
+    
+    builder.dispatch(
+        [1, 1, 1],
+        filter_pipeline.clone(), set_filter.clone(), [0.5 as f32]
+        ).unwrap();
+    
+    
+    //builder.copy_buffer(buffer.clone(), buffer.clone()).unwrap();
+
+    return builder;
+}
+
+
 fn main() {
     let instance =
         Instance::new(None, &InstanceExtensions::none(), None).expect("failed to create instance");
